@@ -2,155 +2,309 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stick Fighter</title>
+  <title>Franky Party - Tetris</title>
   <style>
-    body {
-      background-color: #111;
-      color: #fff;
-      font-family: sans-serif;
-      margin: 0;
-      text-align: center;
+    body { background: #111; color: #fff; font-family: sans-serif; text-align: center; 
+    margin: 0;
+  background-image: url('Franks2.jpg'); /* or online URL */
+  background-size: cover;
+  background-position: center;
+  background-repeat: repeat;
+background-size: auto;
     }
-    canvas {
-      background: #000;
-      display: block;
-      margin: 1rem auto;
-      border: 2px solid #555;
-    }
-    #info {
-      margin-top: 10px;
-    }
+    canvas { background: #000; display: block; margin: 0 auto; border: 2px solid #fff; }
+    #info { margin: 20px; }
+    #controls { margin-top: 15px; font-size: 0.9em; color: #ccc; }
+    input, button { padding: 5px; margin: 5px; }
+    #startButton {
+    padding: 10px 20px;
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
   </style>
 </head>
 <body>
-  <h1>Stick Fighter</h1>
-  <canvas id="game" width="800" height="400"></canvas>
+
+  <h1>Tetris Game</h1>
+  <h3>¡Ganate un soporte gratis sin ticket!</h3>
   <div id="info">
-    <p>Player: Move with A/D, Attack with J</p>
-    <p>First to reduce the other to 0 HP wins!</p>
+    <p>Ingresa tu Nombre: <input id="playerName" type="text" value="Player1" /></p>
+    <p>Score: <span id="score">0</span></p>
+    <!-- <p>Highest Score: <span id="highScore">Loading...</span></p> -->
   </div>
+<button id="startButton">▶️ Start Game</button>
 
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+  <canvas id="tetris" width="240" height="400"></canvas>
 
-    const gravity = 0.2;
+  <div id="controls">
+    <p><strong>Controls:</strong> ← Left | → Right | ↑ Rotate | ↓ Fast Drop | Esc: Restart</p>
+  </div>
+  <div id="leaderboard">
+  <h2>🏆 Top 10 High Scores</h2>
+  <table border="1" style="margin: 0 auto; color: white; border-collapse: collapse;">
+    <thead>
+      <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
+    </thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
+</div>
 
-    class Fighter {
-      constructor(x, color, isAI = false) {
-        this.x = x;
-        this.y = 300;
-        this.width = 30;
-        this.height = 80;
-        this.color = color;
-        this.hp = 100;
-        this.isAI = isAI;
-        this.direction = 0;
-        this.speed = 2;
-        this.isAttacking = false;
-        this.attackTimer = 0;
+
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 🔥 Paste your Firebase config here:
+    const firebaseConfig = {
+    apiKey: "AIzaSyAFkRi3_B8CBfdTz6oEFi2z9lK4TwLOBh4",
+    authDomain: "test-8ece0.firebaseapp.com",
+    projectId: "test-8ece0",
+    storageBucket: "test-8ece0.firebasestorage.app",
+    messagingSenderId: "665141439463",
+    appId: "1:665141439463:web:b8b07dbb7ee170650feb42"
+  };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const scoresCollection = collection(db, "scores");
+
+    async function saveScore(name, score) {
+      try {
+        await addDoc(scoresCollection, {
+          name: name,
+          score: score,
+          createdAt: Date.now()
+        });
+      } catch (err) {
+        console.error("Error saving score:", err);
       }
+    }
 
-      draw() {
-        // Body
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        // HP bar
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = 'lime';
-        ctx.fillRect(this.x, this.y - 10, this.width * (this.hp / 100), 5);
-      }
+    // async function getHighScore() {
+    //   const q = query(scoresCollection, orderBy("score", "desc"), limit(1));
+    //   const snap = await getDocs(q);
+    //   if (!snap.empty) {
+    //     return snap.docs[0].data();
+    //   }
+    //   return null;
+    // }
 
-      update() {
-        if (!this.isAI) {
-          this.x += this.direction * this.speed;
+    async function loadTopScores() {
+  const q = query(scoresCollection, orderBy("score", "desc"), limit(10));
+  const snap = await getDocs(q);
+  const tbody = document.getElementById("leaderboardBody");
+  tbody.innerHTML = "";
+
+  let rank = 1;
+  snap.forEach(doc => {
+    const { name, score } = doc.data();
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${rank}</td><td>${name}</td><td>${score}</td>`;
+    tbody.appendChild(row);
+    rank++;
+  });
+}
+
+
+    // 🧩 TETRIS GAME
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    context.scale(20, 20);
+
+    function arenaSweep() {
+      let rowCount = 1;
+      outer: for (let y = arena.length - 1; y >= 0; --y) {
+        for (let x = 0; x < arena[y].length; ++x) {
+          if (arena[y][x] === 0) continue outer;
         }
-        if (this.attackTimer > 0) this.attackTimer--;
-        if (this.attackTimer === 0) this.isAttacking = false;
-        this.draw();
+        const row = arena.splice(y, 1)[0].fill(0);
+        arena.unshift(row);
+        ++y;
+        player.score += rowCount * 10;
+        rowCount *= 2;
       }
+    }
 
-      attack() {
-        if (!this.isAttacking && this.attackTimer === 0) {
-          this.isAttacking = true;
-          this.attackTimer = 30; // cooldown
+    function collide(arena, player) {
+      const [m, o] = [player.matrix, player.pos];
+      for (let y = 0; y < m.length; ++y) {
+        for (let x = 0; x < m[y].length; ++x) {
+          if (m[y][x] !== 0 &&
+            (arena[y + o.y] &&
+             arena[y + o.y][x + o.x]) !== 0) {
+            return true;
+          }
         }
       }
+      return false;
+    }
 
-      hit() {
-        this.hp -= 10;
-        if (this.hp < 0) this.hp = 0;
+    function createMatrix(w, h) {
+      const matrix = [];
+      while (h--) matrix.push(new Array(w).fill(0));
+      return matrix;
+    }
+
+    function createPiece(type) {
+      if (type === 'T') return [[0, 1, 0],[1, 1, 1],[0, 0, 0]];
+      if (type === 'O') return [[2, 2],[2, 2]];
+      if (type === 'L') return [[0, 0, 3],[3, 3, 3],[0, 0, 0]];
+      if (type === 'J') return [[4, 0, 0],[4, 4, 4],[0, 0, 0]];
+      if (type === 'I') return [[0, 5, 0, 0],[0, 5, 0, 0],[0, 5, 0, 0],[0, 5, 0, 0]];
+      if (type === 'S') return [[0, 6, 6],[6, 6, 0],[0, 0, 0]];
+      if (type === 'Z') return [[7, 7, 0],[0, 7, 7],[0, 0, 0]];
+    }
+
+    function drawMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value !== 0) {
+            context.fillStyle = colors[value];
+            context.fillRect(x + offset.x, y + offset.y, 1, 1);
+          }
+        });
+      });
+    }
+
+    function draw() {
+      context.fillStyle = '#000';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      drawMatrix(arena, {x:0, y:0});
+      drawMatrix(player.matrix, player.pos);
+      
+    }
+
+    function merge(arena, player) {
+      player.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+        });
+      });
+    }
+
+    function playerDrop() {
+      player.pos.y++;
+      if (collide(arena, player)) {
+        player.pos.y--;
+        merge(arena, player);
+        playerReset();
+        arenaSweep();
+        updateScore();
+      }
+      dropCounter = 0;
+    }
+
+    function playerMove(dir) {
+      player.pos.x += dir;
+      if (collide(arena, player)) {
+        player.pos.x -= dir;
       }
     }
 
-    const player = new Fighter(100, '#0f0');
-    const enemy = new Fighter(650, '#f00', true);
-
-    function detectHit(a, b) {
-      return (
-        a.isAttacking &&
-        a.x + a.width >= b.x &&
-        a.x <= b.x + b.width &&
-        Math.abs(a.y - b.y) < 50
-      );
+    function playerReset() {
+      const pieces = 'ILJOTSZ';
+      player.matrix = createPiece(pieces[Math.floor(pieces.length * Math.random())]);
+      player.pos.y = 0;
+      player.pos.x = Math.floor(arena[0].length / 2) - Math.floor(player.matrix[0].length / 2);
+      if (collide(arena, player)) {
+        alert("Game Over! Your score: " + player.score);
+        endGame();
+        player.score = 0;
+      arena.forEach(row => row.fill(0));
+      updateScore();       
+      }
     }
 
-    function drawBackground() {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function playerRotate() {
+      const m = player.matrix;
+      for (let y = 0; y < m.length; ++y) {
+        for (let x = 0; x < y; ++x) {
+          [m[x][y], m[y][x]] = [m[y][x], m[x][y]];
+        }
+      }
+      m.forEach(row => row.reverse());
     }
 
-    function update() {
-      drawBackground();
+    async function endGame() {
+    //   saveScore(document.getElementById('playerName').value, player.score);
+    //   alert("Game Over! Your score: " + player.score);
+    // //   player.score = 0;
+    // //   arena.forEach(row => row.fill(0));
+    // //   updateScore();
+    const name = document.getElementById('playerName').value;
+await saveScore(name, player.score);
+await loadTopScores();
+  
 
-      player.update();
-      enemy.update();
 
-      // Player hit enemy
-      if (detectHit(player, enemy)) {
-        enemy.hit();
-      }
-
-      // Enemy AI
-      if (enemy.x > player.x + 40) {
-        enemy.x -= 1.2;
-      } else if (enemy.x < player.x - 40) {
-        enemy.x += 1.2;
-      } else if (Math.random() < 0.02) {
-        enemy.attack();
-      }
-
-      // Enemy hit player
-      if (detectHit(enemy, player)) {
-        player.hit();
-      }
-
-      // Game Over
-      if (player.hp <= 0 || enemy.hp <= 0) {
-        const winner = player.hp > 0 ? 'Player' : 'Computer';
-        alert(`${winner} wins!`);
-        player.hp = 100;
-        enemy.hp = 100;
-        player.x = 100;
-        enemy.x = 650;
-      }
-
-      requestAnimationFrame(update);
+      
     }
 
-    // Controls
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+
+    let gameRunning = false;
+
+function update(time = 0) {
+  if (!gameRunning) return;
+  const deltaTime = time - lastTime;
+  lastTime = time;
+  dropCounter += deltaTime;
+  if (dropCounter > dropInterval) {
+    playerDrop();
+  }
+  draw();
+  requestAnimationFrame(update);
+}
+
+    function updateScore() {
+      document.getElementById('score').innerText = player.score;
+    }
+
     document.addEventListener('keydown', e => {
-      if (e.key === 'a') player.direction = -1;
-      if (e.key === 'd') player.direction = 1;
-      if (e.key === 'j') player.attack();
-    });
-    document.addEventListener('keyup', e => {
-      if (['a', 'd'].includes(e.key)) player.direction = 0;
+      if (e.key === 'ArrowLeft') playerMove(-1);
+      if (e.key === 'ArrowRight') playerMove(1);
+      if (e.key === 'ArrowDown') playerDrop();
+      if (e.key === 'ArrowUp') playerRotate();
+      if (e.key === 'Escape') playerReset();
     });
 
+    const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
+    const arena = createMatrix(12, 20);
+    const player = {
+      pos: {x: 0, y: 0},
+      matrix: null,
+      score: 0
+    };
+
+    const bgImage = new Image();
+bgImage.src = "Franks.jpg"; // or use a URL
+
+bgImage.onload = () => {
+  console.log("Background image loaded");
+};
+
+    playerReset();
+    updateScore();
     update();
+
+    // // Load high score on page load
+    // getHighScore().then(data => {
+    //   document.getElementById('highScore').innerText = data ? `${data.name}: ${data.score}` : 'None yet';
+    // });
+    
+loadTopScores(); // ⬅️ Add this
+
+    document.getElementById('startButton').addEventListener('click', () => {
+  gameRunning = true;
+  playerReset();
+  updateScore();
+  update();
+  document.getElementById('startButton').style.display = 'none';
+});
   </script>
 </body>
 </html>
