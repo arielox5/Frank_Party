@@ -82,14 +82,10 @@ background-size: auto;
       }
     }
 
-    // async function getHighScore() {
-    //   const q = query(scoresCollection, orderBy("score", "desc"), limit(1));
-    //   const snap = await getDocs(q);
-    //   if (!snap.empty) {
-    //     return snap.docs[0].data();
-    //   }
-    //   return null;
-    // }
+    let level = 0;
+    let speedIncreaseInterval = 60000; // every 30 seconds
+    let lastSpeedIncrease = Date.now();
+
 
     async function loadTopScores() {
   const q = query(scoresCollection, orderBy("score", "desc"), limit(10));
@@ -236,10 +232,6 @@ background-size: auto;
     const name = document.getElementById('playerName').value;
 await saveScore(name, player.score);
 await loadTopScores();
-  
-
-
-      
     }
 
     let dropCounter = 0;
@@ -258,6 +250,13 @@ function update(time = 0) {
   }
   draw();
   requestAnimationFrame(update);
+  
+  if (Date.now() - lastSpeedIncrease > speedIncreaseInterval) {
+  lastSpeedIncrease = Date.now();
+  level++;
+  dropInterval = Math.max(100, dropInterval - 200); // min 100ms
+  console.log("Level up! New drop interval:", dropInterval);
+}
 }
 
     function updateScore() {
