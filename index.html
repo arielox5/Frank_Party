@@ -404,6 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+document.getElementById('playerName').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault(); // Prevent mobile browser from reloading
+    document.getElementById('startButton').click(); // Optional: auto-start game
+  }
+});
+
 
 
   </script>
