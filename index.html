@@ -12,7 +12,10 @@
   background-repeat: repeat;
 background-size: auto;
     }
-    canvas { background: #000; display: block; margin: 0 auto; border: 2px solid #fff; }
+    canvas { display: block;
+  margin: auto;
+  background-color: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 20px #000;}
     #info { margin: 20px; }
     #controls { margin-top: 15px; font-size: 0.9em; color: #ccc; }
     input, button { padding: 5px; margin: 5px; }
@@ -21,6 +24,36 @@ background-size: auto;
     font-size: 1rem;
     margin-bottom: 10px;
   }
+  #mobile-controls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#mobile-controls button {
+  font-size: 24px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: #333;
+  color: white;
+  cursor: pointer;
+  box-shadow: 2px 2px 6px #0006;
+  transition: transform 0.1s;
+}
+
+#mobile-controls button:active {
+  transform: scale(0.95);
+}
+@media (max-width: 600px) {
+  #mobile-controls button {
+    font-size: 20px;
+    padding: 12px 16px;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -34,7 +67,14 @@ background-size: auto;
   </div>
 <button id="startButton">▶️ Start Game</button>
 
-  <canvas id="tetris" width="240" height="400"></canvas>
+  <canvas id="tetris"></canvas>
+  <div id="mobile-controls">
+  <button id="btn-left">⬅️</button>
+  <button id="btn-rotate">🔄</button>
+  <button id="btn-right">➡️</button>
+  <button id="btn-down">⬇️</button>
+</div>
+
 
   <div id="controls">
     <p><strong>Controls:</strong> ← Left | → Right | ↑ Rotate | ↓ Fast Drop | Esc: Restart</p>
@@ -66,6 +106,8 @@ background-size: auto;
     appId: "1:665141439463:web:b8b07dbb7ee170650feb42"
   };
 
+  
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const scoresCollection = collection(db, "scores");
@@ -85,6 +127,8 @@ background-size: auto;
     let level = 0;
     let speedIncreaseInterval = 60000; // every 30 seconds
     let lastSpeedIncrease = Date.now();
+
+    
 
 
     async function loadTopScores() {
@@ -107,7 +151,14 @@ background-size: auto;
     // 🧩 TETRIS GAME
     const canvas = document.getElementById('tetris');
     const context = canvas.getContext('2d');
+    let scale = 20;
     context.scale(20, 20);
+    resizeCanvas(); // 👈 Call this early
+
+    window.addEventListener('resize', () => {
+  location.reload(); // simplest way to re-scale the canvas on resize
+});
+
 
     function arenaSweep() {
       let rowCount = 1;
@@ -223,6 +274,20 @@ background-size: auto;
       m.forEach(row => row.reverse());
     }
 
+    function resizeCanvas() {
+  // Choose scale based on screen width
+  scale = window.innerWidth < 500 ? 18 : 30;
+
+  // Set canvas size in pixels
+  canvas.width = 12 * scale;
+  canvas.height = 20 * scale;
+
+  // Reset and reapply scale
+  context.setTransform(1, 0, 0, 1, 0, 0); // Reset any existing scale
+  context.scale(scale, scale); // Scale drawing to match unit sizes
+}
+
+
     async function endGame() {
     //   saveScore(document.getElementById('playerName').value, player.score);
     //   alert("Game Over! Your score: " + player.score);
@@ -304,6 +369,44 @@ loadTopScores(); // ⬅️ Add this
   update();
   document.getElementById('startButton').style.display = 'none';
 });
+function mobileInput(action) {
+  switch (action) {
+    case 'left':
+      playerMove(-1);
+      break;
+    case 'right':
+      playerMove(1);
+      break;
+    case 'rotate':
+      playerRotate(1);
+      break;
+    case 'down':
+      playerDrop();
+      break;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-left').addEventListener('click', () => {
+    playerMove(-1);
+  });
+
+  document.getElementById('btn-right').addEventListener('click', () => {
+    playerMove(1);
+  });
+
+  document.getElementById('btn-rotate').addEventListener('click', () => {
+    playerRotate(1);
+  });
+
+  document.getElementById('btn-down').addEventListener('click', () => {
+    playerDrop();
+  });
+});
+
+
+
   </script>
+  
 </body>
 </html>
