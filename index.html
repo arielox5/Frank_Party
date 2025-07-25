@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Franky Party - Tetris</title>
   <style>
-    body { background: #111; color: #fff; font-family: sans-serif; text-align: center; 
+    body { overscroll-behavior: none;
+    touch-action: manipulation;
+     background: #111; color: #fff; font-family: sans-serif; text-align: center; 
     margin: 0;
   background-image: url('Franks2.jpg'); /* or online URL */
   background-size: cover;
@@ -12,6 +14,16 @@
   background-repeat: repeat;
 background-size: auto;
     }
+      input, button {
+    -webkit-appearance: none;
+    outline: none;
+  }
+
+  input:focus {
+    border: 2px solid #fff; /* just styling feedback */
+  }
+
+    
     canvas { display: block;
   margin: auto;
   background-color: rgba(0, 0, 0, 0.8);
@@ -61,7 +73,7 @@ background-size: auto;
   <h1>Tetris Game</h1>
   <h3>¡Ganate un soporte gratis sin ticket!</h3>
   <div id="info">
-    <p>Ingresa tu Nombre: <input id="playerName" type="text" value="Player1" /></p>
+    <p>Ingresa tu Nombre: <input id="playerName" placeholder="Enter your name" autocomplete="off" /></p>
     <p>Score: <span id="score">0</span></p>
     <!-- <p>Highest Score: <span id="highScore">Loading...</span></p> -->
   </div>
@@ -413,6 +425,22 @@ document.getElementById('playerName').addEventListener('keydown', function (e) {
   }
 });
 
+document.getElementById('playerName').addEventListener('touchstart', function (e) {
+  e.stopPropagation();
+}, { passive: false });
+
+document.getElementById('playerName').addEventListener('focus', function (e) {
+  e.preventDefault(); // some devices trigger reload here
+}, { passive: false });
+
+document.getElementById('playerName').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault(); // stop Enter from submitting anything
+    if (!gameRunning) {
+      document.getElementById('startButton').click();
+    }
+  }
+});
 
 
   </script>
